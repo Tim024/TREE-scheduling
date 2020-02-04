@@ -101,7 +101,7 @@
 #ifdef TREE_CONF_CELLS_PER_COORD
 #define TREE_CELLS_PER_COORD TREE_CONF_CELLS_PER_COORD
 #else
-#define TREE_CELLS_PER_COORD 1
+#define TREE_CELLS_PER_COORD 5
 #endif /*TREE_CONF_CELLS_PER_COORD*/
 
 
@@ -124,7 +124,7 @@
 #ifdef TREE_CONF_BASIC_CELL
 #define TREE_BASIC_CELL TREE_CONF_BASIC_CELL
 #else
-#define TREE_BASIC_CELL 0
+#define TREE_BASIC_CELL 1
 #endif /*TREE_CONF_BASIC_CELL*/
 
 /* Slotframe EB size */
@@ -134,39 +134,42 @@
 #define TREE_SF_EB_SIZE 157
 #endif /*TREE_CONF_SF_EB_SIZE*/
 
-/* Main slotframe size */
+/* Main slotframe size 16*13
+Multiple of 16 so that it learns to play with channel hopping
+Same size as other slotframe to learn other also
+*/
 #ifdef TREE_CONF_SF_SIZE
 #define TREE_SF_SIZE TREE_CONF_SF_SIZE
 #else
-#define TREE_SF_SIZE 201
+#define TREE_SF_SIZE 208
 #endif /*TREE_CONF_SF_SIZE*/
 
 /* Broadcast slotframe size */
 #ifdef TREE_CONF_SF_BC_SIZE
 #define TREE_SF_BC_SIZE TREE_CONF_SF_BC_SIZE
 #else
-#define TREE_SF_BC_SIZE 97
+#define TREE_SF_BC_SIZE 157
 #endif /*TREE_CONF_SF_BC_SIZE*/
 
 /* Broadcast slotframe size */
 #ifdef TREE_CONF_SF_BC_HANDLE
 #define TREE_SF_BC_HANDLE TREE_CONF_SF_BC_HANDLE
 #else
-#define TREE_SF_BC_HANDLE 2
+#define TREE_SF_BC_HANDLE 1
 #endif /*TREE_CONF_SF_BC_HANDLE*/
 
 /* Main slotframe handle (defines priority with EB) */
 #ifdef TREE_CONF_SF_HANDLE
 #define TREE_SF_HANDLE TREE_CONF_SF_HANDLE
 #else
-#define TREE_SF_HANDLE 0
+#define TREE_SF_HANDLE 2
 #endif /*TREE_CONF_SF_HANDLE*/
 
 /* EB slotframe handle (defines priority with main slotframe) */
 #ifdef TREE_CONF_SF_EB_HANDLE
 #define TREE_SF_EB_HANDLE TREE_CONF_SF_EB_HANDLE
 #else
-#define TREE_SF_EB_HANDLE 1
+#define TREE_SF_EB_HANDLE 0
 #endif /*TREE_CONF_SF_EB_HANDLE*/
 
 /* The hash function used to assign initial timeslots to a given node

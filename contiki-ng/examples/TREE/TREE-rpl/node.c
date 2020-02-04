@@ -18,7 +18,7 @@
 #include "net/ipv6/uip-debug.h"
 
 /* Log configuration */
-#include "sys/log.h"
+#include "os/sys/log.h"
 #define LOG_MODULE "TREE-NODE"
 #define LOG_LEVEL LOG_LEVEL_DBG
 
@@ -99,7 +99,7 @@ PROCESS_THREAD(node_process, ev, data)
                       1234, udp_rx_callback);
 
 
-  etimer_set(&periodic_timer, (59+random_rand() % 3)*CLOCK_SECOND);
+  etimer_set(&periodic_timer, (4+random_rand() % 3)*CLOCK_SECOND);
   while(1) {
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
 

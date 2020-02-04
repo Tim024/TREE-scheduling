@@ -301,8 +301,8 @@ tsch_queue_add_packet(const linkaddr_t *addr, uint8_t max_transmissions,
 
 //TIM TODO
 if (n != n_eb && n != n_broadcast){
-LOG_WARN("packet is added put_index %u, addr %u %u q %u/%u\n",
-put_index, addr->u8[7], addr->u8[6], tsch_queue_packet_count(addr), tsch_queue_global_packet_count());
+LOG_WARN("packet is added put_index %u, addr %u:%u:%u:%u:%u:%u:%u:%u q %u %u\n",
+put_index, addr->u8[7], addr->u8[6], addr->u8[5], addr->u8[4], addr->u8[3], addr->u8[2], addr->u8[1], addr->u8[0], tsch_queue_packet_count(addr), tsch_queue_global_packet_count());
 }
 #if BUILD_WITH_TREE
 TSCH_CALLBACK_PACKET_ADDED_IN_QUEUE(addr,n);
@@ -377,7 +377,9 @@ tsch_queue_packet_sent(struct tsch_neighbor *n, struct tsch_packet *p,
   int is_shared_link = link->link_options & LINK_OPTION_SHARED;
   int is_unicast = !n->is_broadcast;
 
+
   if(mac_tx_status == MAC_TX_OK) {
+    LOG_WARN("Successful transmission %d %d addr %u:%u:%u:%u:%u:%u:%u:%u\n", is_unicast, is_shared_link, (&n->addr)->u8[7], (&n->addr)->u8[6], (&n->addr)->u8[5], (&n->addr)->u8[4], (&n->addr)->u8[3], (&n->addr)->u8[2], (&n->addr)->u8[1], (&n->addr)->u8[0]);
     /* Successful transmission */
     tsch_queue_remove_packet_from_queue(n);
     in_queue = 0;
@@ -391,6 +393,7 @@ tsch_queue_packet_sent(struct tsch_neighbor *n, struct tsch_packet *p,
       }
     }
   } else {
+    LOG_WARN("Unsuccessful transmission %d %d addr %u:%u:%u:%u:%u:%u:%u:%u %u %u\n", is_unicast, is_shared_link, (&n->addr)->u8[7], (&n->addr)->u8[6], (&n->addr)->u8[5], (&n->addr)->u8[4], (&n->addr)->u8[3], (&n->addr)->u8[2], (&n->addr)->u8[1], (&n->addr)->u8[0], p->transmissions, p->max_transmissions);
     /* Failed transmission */
     if(p->transmissions >= p->max_transmissions) {
       /* Drop packet */
@@ -464,23 +467,25 @@ tsch_queue_get_packet_for_nbr(const struct tsch_neighbor *n, struct tsch_link *l
     int is_shared_link = link != NULL && link->link_options & LINK_OPTION_SHARED;
     if(n != NULL) {
       int16_t get_index = ringbufindex_peek_get(&n->tx_ringbuf);
-      if(get_index != -1 &&
-          !(is_shared_link && !tsch_queue_backoff_expired(n))) {    /* If this is a shared link,
+      if(get_index != -1) {    /* If this is a shared link,
                                                                     make sure the backoff has expired */
+        if (!(is_shared_link && !tsch_queue_backoff_expired(n))){
 #if TSCH_WITH_LINK_SELECTOR
-        int packet_attr_slotframe = queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_SLOTFRAME);
-        int packet_attr_timeslot = queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_TIMESLOT);
-        if(packet_attr_slotframe != 0xffff && packet_attr_slotframe != link->slotframe_handle) {
-          return NULL;
-        }
-        if(packet_attr_timeslot != 0xffff && packet_attr_timeslot != link->timeslot) {
-          return NULL;
-        }
+          int packet_attr_slotframe = queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_SLOTFRAME);
+          int packet_attr_timeslot = queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_TIMESLOT);
+   // printf("Looking for packet %u %u on %u %u\n",packet_attr_timeslot,packet_attr_slotframe,link->timeslot, link->slotframe_handle);
+          if(packet_attr_slotframe != 0xffff && packet_attr_slotframe != link->slotframe_handle) {
+            return NULL;
+          }
+          if(packet_attr_timeslot != 0xffff && packet_attr_timeslot != link->timeslot) {
+            return NULL;
+          }
 #endif
-        return n->tx_array[get_index];
-      }
-    }
-  }
+          return n->tx_array[get_index];
+        }// else {printf("shared link on backoff!! %u %u\n",link->timeslot,link->slotframe_handle);}
+      }// else {printf("get index\n");}
+    }// else {printf("nb null\n");}
+  }// else {printf("tsch locked!\n");}
   return NULL;
 }
 /*---------------------------------------------------------------------------*/
@@ -503,7 +508,8 @@ tsch_queue_get_unicast_packet_for_any(struct tsch_neighbor **n, struct tsch_link
     struct tsch_neighbor *curr_nbr = list_head(neighbor_list);
     struct tsch_packet *p = NULL;
     while(curr_nbr != NULL) {
-      if(!curr_nbr->is_broadcast && curr_nbr->tx_links_count == 0) {
+      // if(!curr_nbr->is_broadcast && curr_nbr->tx_links_count == 0) {
+      if(!curr_nbr->is_broadcast && curr_nbr->dedicated_tx_links_count == 0) { //TIM TODO also use BC cells
         /* Only look up for non-broadcast neighbors we do not have a tx link to */
         p = tsch_queue_get_packet_for_nbr(curr_nbr, link);
         if(p != NULL) {

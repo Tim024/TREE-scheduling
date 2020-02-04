@@ -47,8 +47,8 @@
 #define TYPE_ADD 1
 #define TYPE_ADD_OK 2
 struct message{
-  uint16_t timeslot;
-  uint16_t channel_offset;
+  uint16_t timeslot[TREE_CELLS_PER_COORD];
+  uint16_t channel_offset[TREE_CELLS_PER_COORD];
   uint8_t type;
 };// __attribute__ ((aligned(1))); did not work with JN516x
 

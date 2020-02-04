@@ -321,6 +321,7 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
   struct tsch_neighbor *n = NULL;
 
   /* Is this a Tx link? */
+  // printf("on link %u %u %u\n",link->timeslot,link->slotframe_handle,link->link_options);
   if(link->link_options & LINK_OPTION_TX) {
     /* is it for advertisement of EB? */
     if(link->link_type == LINK_TYPE_ADVERTISING || link->link_type == LINK_TYPE_ADVERTISING_ONLY) {
@@ -333,7 +334,8 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
       if(p == NULL) {
         /* Get neighbor queue associated to the link and get packet from it */
         n = tsch_queue_get_nbr(&link->addr);
-        p = tsch_queue_get_packet_for_nbr(n, link);
+        p = tsch_queue_get_packet_for_nbr(n, link); //problem p NULL ?
+        // printf("packet for nb ? %u %u %u\n",(n->addr).u8[7],(n->addr).u8[6],(p == NULL));
         /* if it is a broadcast slot and there were no broadcast packets, pick any unicast packet */
         if(p == NULL && n == n_broadcast) {
           p = tsch_queue_get_unicast_packet_for_any(&n, link);
@@ -466,6 +468,7 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
   /* First check if we have space to store a newly dequeued packet (in case of
    * successful Tx or Drop) */
   dequeued_index = ringbufindex_peek_put(&dequeued_ringbuf);
+
   if(dequeued_index != -1) {
     if(current_packet == NULL || current_packet->qb == NULL) {
       mac_tx_status = MAC_TX_ERR_FATAL;
@@ -495,14 +498,14 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
       packet_len = queuebuf_datalen(current_packet->qb);
       /* is this a broadcast packet? (wait for ack?) */
       is_broadcast = current_neighbor->is_broadcast;
-      /* Unicast. More packets in queue for the neighbor? */
-      burst_link_requested = 0;
-      if(!is_broadcast
-             && tsch_current_burst_count + 1 < TSCH_BURST_MAX_LEN
-             && tsch_queue_packet_count(&current_neighbor->addr) > 1) {
-        burst_link_requested = 1;
-        tsch_packet_set_frame_pending(packet, packet_len);
-      }
+      /* Unicast. More packets in queue for the neighbor? */ //TIM TODO never bursts
+      // burst_link_requested = 0;
+      // if(!is_broadcast
+      //        && tsch_current_burst_count + 1 < TSCH_BURST_MAX_LEN
+      //        && tsch_queue_packet_count(&current_neighbor->addr) > 1) {
+      //   burst_link_requested = 1;
+      //   tsch_packet_set_frame_pending(packet, packet_len);
+      // }
       /* read seqno from payload */
       seqno = ((uint8_t *)(packet))[2];
       /* if this is an EB, then update its Sync-IE */
@@ -1005,7 +1008,6 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
                             tsch_lock_requested,
                             current_link == NULL);
       );
-
     } else {
       int is_active_slot;
       TSCH_DEBUG_SLOT_START();

@@ -23,3 +23,7 @@ MODULES += os/services/TREE
 - The communication output can be vizualized on the FIT/IoT-LAB website.
 
 Further information about the FIT/IoT-LAB can be found [here](https://www.iot-lab.info/tutorials/contiki-ng-compilation/).
+
+# 6TiSCH Simulator
+
+The 6TiSCH Simulator paper can be found [here](https://hal.inria.fr/hal-01838566/document) and more info on how to use the simulator are available [here](https://bitbucket.org/6tisch/simulator/src/master/).

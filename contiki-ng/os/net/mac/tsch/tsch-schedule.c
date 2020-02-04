@@ -90,7 +90,7 @@ tsch_schedule_add_slotframe(uint16_t handle, uint16_t size)
       /* Add the slotframe to the global list */
       list_add(slotframe_list, sf);
     }
-    LOG_INFO("add_slotframe %u %u\n",
+    LOG_ERR("add_slotframe %u %u\n",
            handle, size);
     tsch_release_lock();
     return sf;
@@ -257,12 +257,12 @@ tsch_schedule_add_link(struct tsch_slotframe *slotframe,
         }
         linkaddr_copy(&l->addr, address);
 
-        LOG_INFO("add_link sf=%u opt=%s type=%s ts=%u ch=%u addr=",
+        LOG_ERR("add_link sf=%u opt=%s type=%s ts=%u ch=%u addr=",
                  slotframe->handle,
                  print_link_options(link_options),
                  print_link_type(link_type), timeslot, channel_offset);
-        LOG_INFO_LLADDR(address);
-        LOG_INFO_("\n");
+        LOG_ERR_LLADDR(address);
+        LOG_ERR_("\n");
         /* Release the lock before we update the neighbor (will take the lock) */
         tsch_release_lock();
 
@@ -301,12 +301,12 @@ tsch_schedule_remove_link(struct tsch_slotframe *slotframe, struct tsch_link *l)
       if(l == current_link) {
         current_link = NULL;
       }
-      LOG_INFO("remove_link sf=%u opt=%s type=%s ts=%u ch=%u addr=",
+      LOG_ERR("remove_link sf=%u opt=%s type=%s ts=%u ch=%u addr=",
                slotframe->handle,
                print_link_options(l->link_options),
                print_link_type(l->link_type), l->timeslot, l->channel_offset);
-      LOG_INFO_LLADDR(&l->addr);
-      LOG_INFO_("\n");
+      LOG_ERR_LLADDR(&l->addr);
+      LOG_ERR_("\n");
 
       list_remove(slotframe->links_list, l);
       memb_free(&link_memb, l);
@@ -433,6 +433,7 @@ tsch_schedule_get_next_active_link(struct tsch_asn_t *asn, uint16_t *time_offset
   if(backup_link != NULL) {
     *backup_link = curr_backup;
   }
+  // printf("Next slot selected: %u %u\n",curr_best->timeslot,curr_best->slotframe_handle);
   return curr_best;
 }
 /*---------------------------------------------------------------------------*/

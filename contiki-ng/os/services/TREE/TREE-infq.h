@@ -43,9 +43,10 @@
 
 
 /* Reset values for PSI and PHI */
-#define TREE_PHI_RESET 4000
+#define TREE_PHI_RESET TREE_PHI_MAX/2
 #define TREE_PSI_RESET 5000
-#define QFACTOR 0.0 /* In the paper, this should be equal to f_q \times k */
+//#define QFACTOR 0.3 /* In the paper, this should be equal to f_q \times k */
+#define QFACTOR 0.3 /* In the paper, this should be equal to f_q \times k */
 
 
 uint32_t update_psi(uint32_t old_value);

@@ -58,7 +58,7 @@
 #define LOG_LEVEL LOG_LEVEL_INFO
 
 /* Sends a control message to the queue */
-static int send_control_message(const linkaddr_t * dest, uint8_t type, uint16_t timeslot, uint16_t channel_offset);
+static int send_control_message(const linkaddr_t * dest, uint8_t type, uint16_t * timeslot, uint16_t * channel_offset);
 
 /* The scheduling background process */
 PROCESS(tree_scheduling_process, "TREE-scheduling process");
@@ -74,8 +74,10 @@ static int waitack_counter = 0;
 struct message message_buffer;
 /* Action info and state */
 linkaddr_t action_address;
-uint16_t action_timeslot = 0;
-uint16_t action_channel = 0;
+uint16_t action_timeslot_add[TREE_CELLS_PER_COORD];
+uint16_t action_timeslot_remove = 0;
+uint16_t action_channel_add[TREE_CELLS_PER_COORD];
+uint16_t action_channel_remove = 0;
 uint8_t action_state = ACTION_IDLE;
 
 /*---------------------------------------------------------------------------*/
@@ -92,18 +94,30 @@ control_packet_input()
   linkaddr_t addr;
   linkaddr_copy(&addr,packetbuf_addr(PACKETBUF_ADDR_SENDER));
   uint8_t type = msg.type;
-  uint16_t ts = msg.timeslot;
-  uint16_t co = msg.channel_offset;
+  uint16_t ts[TREE_CELLS_PER_COORD];
+  memcpy(ts, msg.timeslot, TREE_CELLS_PER_COORD*sizeof(uint16_t));
+  uint16_t co[TREE_CELLS_PER_COORD];
+  memcpy(co, msg.channel_offset, TREE_CELLS_PER_COORD*sizeof(uint16_t));
 
   if(action_state == ACTION_IDLE){
     linkaddr_copy(&action_address,&addr);
-    action_timeslot = ts;
-    action_channel = co;
+    // action_timeslot_add = ts;
+    memcpy(action_timeslot_add, ts, TREE_CELLS_PER_COORD*sizeof(uint16_t));
+    // action_channel_add = co;
+    memcpy(action_channel_add, co, TREE_CELLS_PER_COORD*sizeof(uint16_t));
     if(type == TYPE_ADD){
-      if(tsch_schedule_get_link_by_timeslot(slotframe_data, ts) == NULL){
-        LOG_DBG("type ADD rx, I send add ok\n");
-        if(1 == send_control_message(&action_address,TYPE_ADD_OK,ts,co))
-          action_state = ACTION_ADD_WAITACK;
+      int k;
+      for(k = 0; k < TREE_CELLS_PER_COORD; k = k + 1){
+        if(tsch_schedule_get_link_by_timeslot(slotframe_data, ts[k]) != NULL){
+          action_timeslot_add[k] = 0xffff;
+          action_channel_add[k] = 0xffff;
+          ts[k] = 0xffff;
+          co[k] = 0xffff;
+        }
+      }
+      LOG_DBG("type ADD rx, I send add ok\n");
+      if(1 == send_control_message(&action_address,TYPE_ADD_OK,ts,co)){
+        action_state = ACTION_ADD_WAITACK;
       }
     } else if (type == TYPE_ADD_OK){
       LOG_DBG("type ADD OK rx\n");
@@ -113,21 +127,19 @@ control_packet_input()
   if(action_state == ACTION_SEND_ADD && type == TYPE_ADD_OK){
     //If we wanted to request a link with this neighbor, ignore demand and add the link
     if (linkaddr_cmp(&addr,&action_address)){
-      action_timeslot = ts;
-      action_channel = co;
+      memcpy(action_timeslot_add, ts, TREE_CELLS_PER_COORD*sizeof(uint16_t));
+      memcpy(action_channel_add, co, TREE_CELLS_PER_COORD*sizeof(uint16_t));
       LOG_DBG("type ADD OK rx overwriting send ADD\n");
       action_state = ACTION_ADDLINK_TX;
     }
   }
-
-  LOG_DBG("input control %u len %u--  %u.%u.%u.%u -- ts %u co %u typ %u\n",action_state,packetbuf_datalen(),addr.u8[0],addr.u8[1],addr.u8[2],addr.u8[3],ts,co,type);
 }
 /*---------------------------------------------------------------------------*/
 void
 control_packet_sent(void *ptr, int status, int transmissions)
 {
-  //struct message * message = (struct message *) ptr;
-  //LOG_DBG("control sent %u ts %u co %u typ %u\n",status, message->timeslot,message->channel_offset,message->type);
+  // struct message * message = (struct message *) ptr;
+  LOG_DBG("control sent %u\n",status);
 
   /* If state == ACTION_ADD_WAITACK, update accordingly */
   if(action_state == ACTION_ADD_WAITACK){
@@ -163,7 +175,7 @@ tree_callback_nbr_added(const linkaddr_t *n)
 #if TREE_BASIC_CELL
 /* One Tx per neighbor */
 tsch_schedule_add_link(slotframe_data,
-    LINK_OPTION_TX | LINK_OPTION_SHARED,
+    LINK_OPTION_RX | LINK_OPTION_SHARED,
     LINK_TYPE_NORMAL, n,
     TREE_HASH(n)%TREE_SF_SIZE, 2);
 #endif
@@ -173,7 +185,7 @@ tsch_schedule_add_link(slotframe_data,
 static int control_packet_seqno = 1;
 /* Sends a control message to the queue */
 static int
-send_control_message(const linkaddr_t * dest, uint8_t type, uint16_t timeslot, uint16_t channel_offset)
+send_control_message(const linkaddr_t * dest, uint8_t type, uint16_t * timeslot, uint16_t * channel_offset)
 {
 
   if(!tsch_is_associated || linkaddr_cmp(dest,&tsch_broadcast_address) || linkaddr_cmp(dest,&linkaddr_null)) {
@@ -182,8 +194,9 @@ send_control_message(const linkaddr_t * dest, uint8_t type, uint16_t timeslot, u
   }
 
   message_buffer.type = type;
-  message_buffer.timeslot = timeslot;
-  message_buffer.channel_offset = channel_offset;
+  memcpy(message_buffer.timeslot, timeslot, TREE_CELLS_PER_COORD*sizeof(uint16_t));
+  // message_buffer.channel_offset = channel_offset;
+  memcpy(message_buffer.channel_offset, channel_offset, TREE_CELLS_PER_COORD*sizeof(uint16_t));
 
   packetbuf_clear();
   packetbuf_copyfrom(&message_buffer,sizeof(struct message));
@@ -337,7 +350,6 @@ tree_callback_slot_rx(struct input_packet * packet, int is_frame_valid, struct t
 void
 tree_callback_slot_tx(const linkaddr_t * dest, uint8_t mac_status, struct tsch_link * link)
 {
-
   /* Update PSI according to transmission status */
   if(mac_status != MAC_TX_OK){
     link->psi = update_psi_err(link->psi);
@@ -398,29 +410,42 @@ tree_process_pending()
     struct tsch_neighbor * n;
     n = tsch_queue_add_nbr(&action_address); //get ?
     if(action_state == ACTION_REMOVELINK){
-      if (1 == tsch_schedule_remove_link_by_timeslot(slotframe_data,action_timeslot)){
-        LOG_INFO("ACTION REMOVELINK %d\n",action_timeslot);
+      if (1 == tsch_schedule_remove_link_by_timeslot(slotframe_data,action_timeslot_remove)){
+        LOG_INFO("ACTION REMOVELINK %d\n",action_timeslot_remove);
       }
       action_state = ACTION_IDLE;
     }
     if (action_state == ACTION_ADDLINK_TX){
       n->phi = TREE_PHI_RESET;
-      struct tsch_link * li = tsch_schedule_add_link(slotframe_data, LINK_OPTION_TX, LINK_TYPE_NORMAL, &action_address, action_timeslot, action_channel);
-      if (li == NULL){
-        LOG_ERR("Could not add link TX %d\n",action_timeslot);
-      } else {
-        li->psi = TREE_PSI_RESET;
-        LOG_INFO("ACTION ADDLINK TX ts %d co %d addr %u:%u:%u:%u\n", action_timeslot, action_channel, action_address.u8[4], action_address.u8[5], action_address.u8[6], action_address.u8[7]);
+
+      int k;
+      for(k = 0; k < TREE_CELLS_PER_COORD; k = k + 1){
+        if (action_timeslot_add[k]!=0xffff){
+          struct tsch_link * li = tsch_schedule_add_link(slotframe_data, LINK_OPTION_TX, LINK_TYPE_NORMAL, &action_address, action_timeslot_add[k], action_channel_add[k]);
+          if (li == NULL){
+            LOG_ERR("Could not add link TX %d\n",action_timeslot_add[k]);
+          } else {
+            li->psi = TREE_PSI_RESET;
+            LOG_INFO("ACTION ADDLINK TX ts %d co %d addr %u:%u:%u:%u\n", action_timeslot_add[k], action_channel_add[k], action_address.u8[4], action_address.u8[5], action_address.u8[6], action_address.u8[7]);
+          }
+        }
       }
+
       action_state = ACTION_IDLE;
     } else if (action_state == ACTION_ADDLINK_RX){
       n->phi = TREE_PHI_RESET;
-      struct tsch_link * li = tsch_schedule_add_link(slotframe_data, LINK_OPTION_RX, LINK_TYPE_NORMAL, &action_address, action_timeslot, action_channel);
-      if (li == NULL){
-        LOG_ERR("Could not add link RX %d\n",action_timeslot);
-      } else {
-        li->psi = TREE_PSI_RESET;
-        LOG_INFO("ACTION ADDLINK RX ts %d co %d addr %u:%u:%u:%u\n", action_timeslot, action_channel, action_address.u8[4], action_address.u8[5], action_address.u8[6], action_address.u8[7]);
+
+      int k;
+      for(k = 0; k < TREE_CELLS_PER_COORD; k = k + 1){
+        if (action_timeslot_add[k]!=0xffff){
+          struct tsch_link * li = tsch_schedule_add_link(slotframe_data, LINK_OPTION_RX, LINK_TYPE_NORMAL, &action_address, action_timeslot_add[k], action_channel_add[k]);
+          if (li == NULL){
+            LOG_ERR("Could not add link RX %d\n",action_timeslot_add[k]);
+          } else {
+            li->psi = TREE_PSI_RESET;
+            LOG_INFO("ACTION ADDLINK RX ts %d co %d addr %u:%u:%u:%u\n", action_timeslot_add[k], action_channel_add[k], action_address.u8[4], action_address.u8[5], action_address.u8[6], action_address.u8[7]);
+          }
+        }
       }
       action_state = ACTION_IDLE;
     } else if (action_state == ACTION_ADD_WAITACK){
@@ -433,19 +458,26 @@ tree_process_pending()
     } else if (action_state == ACTION_SEND_ADD){
       //n->phi = TREE_PHI_RESET;
       /* Finds a free timeslot in slotframe_data */
-      uint16_t timeslot = 0;
-      uint16_t channel = 0;
-      int stop = 0;
-      while(stop == 0){
-        timeslot = random_rand() % TREE_SF_SIZE;
-        channel = random_rand() % 16;
-        if(tsch_schedule_get_link_by_timeslot(slotframe_data, timeslot) == NULL){
-          stop = 1;
+      uint16_t all_timeslots[TREE_CELLS_PER_COORD];
+      uint16_t all_channels[TREE_CELLS_PER_COORD];
+      int k;
+      for(k = 0; k < TREE_CELLS_PER_COORD; k = k + 1){
+        uint16_t timeslot = 0;
+        uint16_t channel = 0;
+        int stop = 0;
+        while(stop == 0){
+          timeslot = random_rand() % TREE_SF_SIZE;
+          channel = random_rand() % 16;
+          if(tsch_schedule_get_link_by_timeslot(slotframe_data, timeslot) == NULL){
+            stop = 1;
+          }
         }
+      all_timeslots[k] = timeslot;
+      all_channels[k] = channel;
       }
       LOG_INFO("ACTION SEND ADD\n")
       /* Sends the control message */;
-      send_control_message(&action_address,TYPE_ADD,timeslot,channel);
+      send_control_message(&action_address,TYPE_ADD,all_timeslots,all_channels);
       action_state = ACTION_IDLE;
     }
   }
@@ -465,9 +497,19 @@ tree_callback_packet_ready() //Select SF0 when possible
   } else {
     struct tsch_neighbor * nb = tsch_queue_get_nbr(&addr);
     if (nb != NULL){
-      if (nb->dedicated_tx_links_count > 0 && !(nb->is_broadcast)){
+      if (nb->dedicated_tx_links_count > 1 && !(nb->is_broadcast)){
         slotframe = TREE_SF_HANDLE;
-        //printf("packet ready assigning sf handle %u ...\n", TREE_SF_HANDLE);
+        // struct tsch_link * l; // Lowest PSI chosen
+        // uint32_t lowest_PSI = 100000;
+        // for (l = list_head(slotframe_data->links_list); l != NULL; l = list_item_next(l)){
+        //   if (linkaddr_cmp(&addr,&l->addr)){
+        //     if (l->psi <  lowest_PSI){
+        //       timeslot = l->timeslot;
+        //       lowest_PSI = l->psi;
+        //     }
+        //   }
+        // }
+        // printf("packet ready assigning sf handle %u ...\n", TREE_SF_HANDLE);
       }// else { printf("packet ready not enough links or is broadcast %u %u \n",nb->dedicated_tx_links_count, nb->is_broadcast); }
     } //else { printf("packet ready null neighbor...\n"); }
   }
@@ -488,6 +530,11 @@ void
 tree_init(void)
 {
 
+  int k;
+  for(k = 0; k < TREE_CELLS_PER_COORD; k = k + 1){
+    action_timeslot_add[k] = 0xffff;
+    action_channel_add[k] = 0xffff;
+  }
   slotframe_data = tsch_schedule_add_slotframe(TREE_SF_HANDLE, TREE_SF_SIZE);
   slotframe_bc = tsch_schedule_add_slotframe(TREE_SF_BC_HANDLE, TREE_SF_BC_SIZE);
   slotframe_eb = tsch_schedule_add_slotframe(TREE_SF_EB_HANDLE, TREE_SF_EB_SIZE);
@@ -505,9 +552,9 @@ tree_init(void)
 #endif /* TREE_EB_ON_RPL_PARENT */
 
 #if TREE_BASIC_CELL
-  /* One Tx per neighbor (receiver-based) */
+  /* One Tx per neighbor (receiver-based) */ //Test sender based
   tsch_schedule_add_link(slotframe_data,
-      LINK_OPTION_RX| LINK_OPTION_SHARED,
+      LINK_OPTION_TX| LINK_OPTION_SHARED,
       LINK_TYPE_NORMAL, &tsch_broadcast_address,
       TREE_HASH(&linkaddr_node_addr)%TREE_SF_SIZE, 2);
 #endif /* TREE_BASIC_CELL */
@@ -554,8 +601,8 @@ PROCESS_THREAD(tree_scheduling_process, ev, data)
 
         action_state = ACTION_REMOVELINK;
         linkaddr_copy(&action_address,&l->addr);
-        action_timeslot = l->timeslot;
-        action_channel = l->channel_offset;
+        action_timeslot_remove = l->timeslot;
+        action_channel_remove = l->channel_offset;
       }
     }
 

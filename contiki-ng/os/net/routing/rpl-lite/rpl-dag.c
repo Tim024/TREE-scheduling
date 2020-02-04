@@ -346,7 +346,7 @@ rpl_dag_update_state(void)
         rpl_timers_schedule_periodic_dis();
         rpl_timers_schedule_leaving();
       }
-
+      
       if(LOG_INFO_ENABLED) {
         rpl_neighbor_print_list("Parent switch");
       }

@@ -54,7 +54,7 @@
 #include "net/routing/rpl-classic/rpl-private.h"
 #include "net/packetbuf.h"
 #include "net/ipv6/multicast/uip-mcast6.h"
-#include "random.h"
+#include "lib/random.h"
 
 #include "sys/log.h"
 
@@ -1334,7 +1334,7 @@ dao_ack_input(void)
   } else if(RPL_IS_STORING(instance)) {
     /* this DAO ACK should be forwarded to another recently registered route */
     uip_ds6_route_t *re;
-    uip_ipaddr_t *nexthop;
+    const uip_ipaddr_t *nexthop; //ksh.. attach const
     if((re = find_route_entry_by_dao_ack(sequence)) != NULL) {
       /* pick the recorded seq no from that node and forward DAO ACK - and
          clear the pending flag*/

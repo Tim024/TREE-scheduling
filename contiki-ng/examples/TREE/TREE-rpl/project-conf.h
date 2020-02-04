@@ -7,6 +7,19 @@
 // #define SICSLOWPAN_CONF_FRAG 0
 // #define UIP_CONF_BUFFER_SIZE 160
 
+// #undef NETSTACK_CONF_ROUTING
+// #define NETSTACK_CONF_ROUTING       rpl_classic_driver    //ksh..
+//
+// #define RPL_CONF_WITH_NON_STORING    0 // original : 1 //ksh..
+// #define RPL_CONF_MOP                RPL_MOP_STORING_NO_MULTICAST  //ksh..
+// #define RPL_CONF_WITH_DAO_ACK       1 //ksh..
+//
+//
+// #undef ROUTING_CONF_RPL_LITE
+// #define ROUTING_CONF_RPL_LITE     0 //ksh..
+//
+// #define ROUTING_CONF_RPL_CLASSIC     1 //ksh..
+
 /*******************************************************/
 /******************* Configure TSCH ********************/
 /*******************************************************/
@@ -15,11 +28,11 @@
 // #define TSCH_CONF_INIT_SCHEDULE_FROM_EB 0
 
 #undef NBR_TABLE_CONF_MAX_NEIGHBORS
-#define NBR_TABLE_CONF_MAX_NEIGHBORS 64 //Max neighbors
+#define NBR_TABLE_CONF_MAX_NEIGHBORS 100 //Max neighbors
 // #define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR 16 //Max 8 packets per neighbor
 // #define QUEUEBUF_CONF_NUM 20 //Max 10 packets in queue total
 #undef TSCH_SCHEDULE_CONF_MAX_LINKS
-#define TSCH_SCHEDULE_CONF_MAX_LINKS 64
+#define TSCH_SCHEDULE_CONF_MAX_LINKS 128
 
 #undef QUEUEBUF_CONF_NUM
 #define QUEUEBUF_CONF_NUM 32
@@ -71,7 +84,7 @@
 #define LOG_CONF_LEVEL_TCPIP                       LOG_LEVEL_WARN
 #define LOG_CONF_LEVEL_IPV6                        LOG_LEVEL_WARN
 #define LOG_CONF_LEVEL_6LOWPAN                     LOG_LEVEL_WARN
-#define LOG_CONF_LEVEL_MAC                         LOG_LEVEL_ERR
+#define LOG_CONF_LEVEL_MAC                         LOG_LEVEL_WARN
 #define LOG_CONF_LEVEL_FRAMER                      LOG_LEVEL_WARN//LOG_LEVEL_DBG
 #define TSCH_LOG_CONF_PER_SLOT                     0//1
 
